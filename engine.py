@@ -97,7 +97,6 @@ PST_White = {
     chess.BISHOP: evalWhiteBishop,
     chess.ROOK: evalWhiteRook,
     chess.QUEEN: evalWhiteQueen,
-    chess.KING: evalWhiteKing
 }
 
 PST_Black = {
@@ -106,7 +105,6 @@ PST_Black = {
     chess.BISHOP: evalBlackBishop,
     chess.ROOK: evalBlackRook,
     chess.QUEEN: evalBlackQueen,
-    chess.KING: evalBlackKing
 }
 
 
@@ -120,6 +118,16 @@ def evaluate_pieces(board: chess.Board) -> float:
 
         for square in board.pieces(piece_type, chess.BLACK):
             score += PST_Black[piece_type][square]
+
+    if is_endgame(board):
+        king_square_white = board.king(chess.WHITE)
+        king_square_black = board.king(chess.BLACK)
+        score += evalWhiteKingEnd[king_square_white]
+        score += evalBlackKingEnd[king_square_black]
+    else:
+        score += evalWhiteKing[king_square_white]
+        score += evalBlackKing[king_square_black]
+
     return score
 
 
@@ -135,8 +143,23 @@ def evaluate(board: chess.Board) -> float:
 
     return score + positional_score
 
-def endgame(board: chess.Board) -> bool:
-    
+
+def is_endgame(board: chess.Board) -> bool:
+    queens = 0
+    value = 0
+
+    major_pieces = [chess.KNIGHT, chess.BISHOP, chess.ROOK]
+    for color in [chess.WHITE, chess.BLACK]:
+        queens += len(board.pieces(chess.QUEEN, color))
+
+        for piece in major_pieces:
+            value += len(board.pieces(piece, color)) * piece_values[piece]
+
+    if queens == 0 and value < 1300:
+        return True
+
+    else:
+        return False
 
 
 # Searching for the best move
