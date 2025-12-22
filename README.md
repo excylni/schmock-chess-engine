@@ -4,4 +4,5 @@ Created a chess engine with the help of python-chess library. engine.py contains
 
 - search function has minimax algorithm with alpha-beta pruning
 - evaluation is simply just calculating pieces not captured pieces with their values
-- also penalizing repetetive moves 
+- added PST
+
