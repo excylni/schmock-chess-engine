@@ -10,7 +10,7 @@ sys.setrecursionlimit(5000)
 LOGFILE = "engine_log.txt"
 
 logging.basicConfig(
-    level=logging.DEBUG,
+    level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(filename)s:%(lineno)d - %(message)s',
     handlers=[
         logging.FileHandler(LOGFILE, mode='a'),
@@ -20,11 +20,9 @@ logging.basicConfig(
 
 logging.getLogger().handlers[1].setLevel(logging.WARNING)
 
-move_overhead_ms = 100
-threads = 8 
-
-
 def uci_loop():
+    move_overhead_ms = 100
+    threads = 8 
     board = chess.Board()
 
     while True:
@@ -155,6 +153,7 @@ def uci_loop():
                 move = list(board.legal_moves)[0]
 
             print(f"bestmove {move.uci()}", flush=True)
+            logging.info(f"Playing move {move}")
 
         elif line == "quit":
             logging.shutdown()

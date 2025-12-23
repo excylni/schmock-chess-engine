@@ -205,7 +205,7 @@
  [],
  False,
  False,
- 1766440878,
+ 1766495763,
  [('run',
    '/Users/excylni/opt/anaconda3/lib/python3.9/site-packages/PyInstaller/bootloader/Darwin-64bit/run',
    'EXECUTABLE')],
