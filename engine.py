@@ -148,7 +148,7 @@ def evaluate(board: chess.Board) -> float:
         score -= len(board.pieces(piece_type, chess.BLACK)) * piece_values[piece_type]
 
     total = score + positional_score
-    logging.DEBUG(
+    logging.debug(
         f"Evaluated score, piece values:{score}, positional values:{positional_score}, total: {total}")
     return total
 
@@ -177,7 +177,7 @@ def best_move(board: chess.Board, depth: int) -> chess.Move:
     best_move = None
     alpha = float("-inf")
     beta = float("inf")
-    logger.info(f"Starting search for depth {depth}. Current FEN: {board.FEN()}")
+    logger.info(f"Starting search for depth {depth}. Current FEN: {board.fen()}")
     if not board.legal_moves:
         logger.debug("No legal moves available")
         return None
@@ -193,7 +193,7 @@ def best_move(board: chess.Board, depth: int) -> chess.Move:
             if best_score < score:
                 best_score = score
                 best_move = legal_move
-                logger.debug(f"New best score found: {best_score} for move {move.uci()} at depth {depth-1}")
+                logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
     else:
         best_score = float("inf")
         for legal_move in board.legal_moves:
@@ -205,7 +205,7 @@ def best_move(board: chess.Board, depth: int) -> chess.Move:
             if best_score > score:
                 best_score = score
                 best_move = legal_move
-                logger.debug(f"New best score found: {best_score} for move {move.uci()} at depth {depth-1}")
+                logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
 
     return best_move
 
@@ -214,8 +214,8 @@ def minmax(board: chess.Board, depth: int, alpha: float, beta: float) -> float:
     """getting the best score eval func. and minmax,
     by looking at the best move of the opponent and choosing the lesser evil"""
     if depth == 0:
-        logger.debug(f"Reached node 0. Score: {evaluate(Board)}")
-        return evaluate(board) 
+        logger.debug(f"Reached node 0. Score: {evaluate(board)}")
+        return evaluate(board)
 
     if board.is_checkmate():
         if board.turn == chess.WHITE:
