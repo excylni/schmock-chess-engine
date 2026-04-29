@@ -3,17 +3,6 @@ from concurrent.futures import ThreadPoolExecutor
 import logging
 
 logger = logging.getLogger(__name__)
-#Search
-piece_values = {
-    chess.PAWN: 100,
-    chess.KNIGHT: 320,
-    chess.BISHOP: 330,
-    chess.ROOK: 500,
-    chess.QUEEN: 900,
-    chess.KING: 20000
-}
-
-MATE_SCORE = 90000
 
 #Piece-Square Tables
 evalWhitePawn = [0,  0,  0,  0,  0,  0,  0,  0,
@@ -110,147 +99,160 @@ PST_Black = {
     chess.QUEEN: evalBlackQueen,
 }
 
-
-# Evaluation functions
-def evaluate_pieces(board: chess.Board) -> float:
-    score = 0
-    # adding a score for each piece on a specific square
-    for piece_type in piece_values:
-        if piece_type == chess.KING:
-            continue
-        for square in board.pieces(piece_type, chess.WHITE):
-            score += PST_White[piece_type][square]
-
-        for square in board.pieces(piece_type, chess.BLACK):
-            score -= PST_Black[piece_type][square]
-
-    king_square_white = board.king(chess.WHITE)
-    king_square_black = board.king(chess.BLACK)
-
-    if is_endgame(board):
-        score += evalWhiteKingEnd[king_square_white]
-        score -= evalBlackKingEnd[king_square_black]
-    else:
-        score += evalWhiteKing[king_square_white]
-        score -= evalBlackKing[king_square_black]
-
-    return score
+class ChessEngine():
+    def __init__(self,board: chess.Board = None):
+        self.name = "Schmock3000"
+        self.board = board if board else chess.Board()
+        self.piece_values = {
+            chess.PAWN: 100,
+            chess.KNIGHT: 320,
+            chess.BISHOP: 330,
+            chess.ROOK: 500,
+            chess.QUEEN: 900,
+            chess.KING: 20000
+            }
+        self.MATE_SCORE = 90000
 
 
-def evaluate(board: chess.Board) -> float:
-    """Return a score for the position. Positive -> good for white"""
-    score = 0
-    positional_score = evaluate_pieces(board)
+    def evaluate_pieces(self, board: chess.Board) -> float:
+        score = 0
+        # adding a score for each piece on a specific square
+        for piece_type in self.piece_values:
+            if piece_type == chess.KING:
+                continue
+            for square in board.pieces(piece_type, chess.WHITE):
+                score += PST_White[piece_type][square]
 
-# Calculating the value of all pieces
-    for piece_type in piece_values:
-        score += len(board.pieces(piece_type, chess.WHITE)) * piece_values[piece_type]
-        score -= len(board.pieces(piece_type, chess.BLACK)) * piece_values[piece_type]
+            for square in board.pieces(piece_type, chess.BLACK):
+                score -= PST_Black[piece_type][square]
 
-    total = score + positional_score
-    logging.debug(
-        f"Evaluated score, piece values:{score}, positional values:{positional_score}, total: {total}")
-    return total
+        king_square_white = board.king(chess.WHITE)
+        king_square_black = board.king(chess.BLACK)
 
-
-def is_endgame(board: chess.Board) -> bool:
-    queens = 0
-    value = 0
-
-    major_pieces = [chess.KNIGHT, chess.BISHOP, chess.ROOK]
-    for color in [chess.WHITE, chess.BLACK]:
-        queens += len(board.pieces(chess.QUEEN, color))
-
-        for piece in major_pieces:
-            value += len(board.pieces(piece, color)) * piece_values[piece]
-
-    if queens == 0 and value < 1300:
-        return True
-
-    else:
-        return False
-
-
-# Searching for the best move
-def best_move(board: chess.Board, depth: int) -> chess.Move:
-    """choosing the best move out of all legal moves using eval func. and minmax"""
-    best_move = None
-    alpha = float("-inf")
-    beta = float("inf")
-    logger.info(f"Starting search for depth {depth}. Current FEN: {board.fen()}")
-    if not board.legal_moves:
-        logger.debug("No legal moves available")
-        return None
-
-    if board.turn == chess.WHITE:
-        best_score = float("-inf")
-        for legal_move in board.legal_moves:
-            board.push(legal_move)
-            score = minmax(board, depth-1, alpha, beta)
-            alpha = max(alpha, score)
-            board.pop()
-
-            if best_score < score:
-                best_score = score
-                best_move = legal_move
-                logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
-    else:
-        best_score = float("inf")
-        for legal_move in board.legal_moves:
-            board.push(legal_move)
-            score = minmax(board, depth-1, alpha, beta)
-            beta = min(beta, score)
-            board.pop()
-
-            if best_score > score:
-                best_score = score
-                best_move = legal_move
-                logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
-
-    return best_move
-
-
-def minmax(board: chess.Board, depth: int, alpha: float, beta: float) -> float:
-    """getting the best score eval func. and minmax,
-    by looking at the best move of the opponent and choosing the lesser evil"""
-    if depth == 0:
-        logger.debug(f"Reached node 0. Score: {evaluate(board)}")
-        return evaluate(board)
-
-    if board.is_checkmate():
-        if board.turn == chess.WHITE:
-            logger.debug("White is in CHECKMATE")
-            return -MATE_SCORE
+        if self.is_endgame(board):
+            score += evalWhiteKingEnd[king_square_white]
+            score -= evalBlackKingEnd[king_square_black]
         else:
-            logger.debug("Black is in CHECKMATE")
-            return MATE_SCORE
-    if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_threefold_repetition():
-        logger.debug("Stalemate has been reached")
-        return 0
+            score += evalWhiteKing[king_square_white]
+            score -= evalBlackKing[king_square_black]
 
-    if board.turn == chess.WHITE:
-        best_score = float("-inf")
+        return score
 
-        for white_move in board.legal_moves:
-            board.push(white_move)
-            score = minmax(board, depth-1, alpha, beta)
-            best_score = max(best_score, score)
-            alpha = max(alpha, score)
-            board.pop()
 
-            if alpha >= beta:
-                break
-    else:
-        best_score = float("inf")
+    def evaluate(self, board: chess.Board) -> float:
+        """Return a score for the position. Positive -> good for white"""
+        score = 0
+        positional_score = self.evaluate_pieces(self.board)
 
-        for black_move in board.legal_moves:
-            board.push(black_move)
-            score = minmax(board, depth-1, alpha, beta)
-            best_score = min(best_score, score)
-            beta = min(beta, score)
-            board.pop()
+    # Calculating the value of all pieces
+        for piece_type in self.piece_values:
+            score += len(board.pieces(piece_type, chess.WHITE)) * self.piece_values[piece_type]
+            score -= len(board.pieces(piece_type, chess.BLACK)) * self.piece_values[piece_type]
 
-            if alpha >= beta:
-                break
+        total = score + positional_score
+        logging.debug(
+            f"Evaluated score, piece values:{score}, positional values:{positional_score}, total: {total}")
+        return total
 
-    return best_score
+
+    def is_endgame(self, board: chess.Board) -> bool:
+        queens = 0
+        value = 0
+
+        major_pieces = [chess.KNIGHT, chess.BISHOP, chess.ROOK]
+        for color in [chess.WHITE, chess.BLACK]:
+            queens += len(board.pieces(chess.QUEEN, color))
+
+            for piece in major_pieces:
+                value += len(board.pieces(piece, color)) * self.piece_values[piece]
+
+        if queens == 0 and value < 1300:
+            return True
+
+        else:
+            return False
+
+
+
+    def best_move(self ,board: chess.Board, depth: int) -> chess.Move:
+        """choosing the best move out of all legal moves using eval func. and minimax"""
+        best_move = None
+        alpha = float("-inf")
+        beta = float("inf")
+        logger.info(f"Starting search for depth {depth}. Current FEN: {board.fen()}")
+        if not board.legal_moves:
+            logger.debug("No legal moves available")
+            return None
+
+        if board.turn == chess.WHITE:
+            best_score = float("-inf")
+            for legal_move in board.legal_moves:
+                board.push(legal_move)
+                score = self.minimax(board, depth-1, alpha, beta)
+                alpha = max(alpha, score)
+                board.pop()
+
+                if best_score < score:
+                    best_score = score
+                    best_move = legal_move
+                    logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
+        else:
+            best_score = float("inf")
+            for legal_move in board.legal_moves:
+                board.push(legal_move)
+                score = self.minimax(board, depth-1, alpha, beta)
+                beta = min(beta, score)
+                board.pop()
+
+                if best_score > score:
+                    best_score = score
+                    best_move = legal_move
+                    logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
+
+        return best_move
+
+
+    def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float) -> float:
+        """getting the best score eval func. and minimax,
+        by looking at the best move of the opponent and choosing the lesser evil"""
+        if depth == 0:
+            logger.debug(f"Reached node 0. Score: {self.evaluate(board)}")
+            return self.evaluate(board)
+
+        if board.is_checkmate():
+            if board.turn == chess.WHITE:
+                logger.debug("White is in CHECKMATE")
+                return -self.MATE_SCORE
+            else:
+                logger.debug("Black is in CHECKMATE")
+                return self.MATE_SCORE
+        if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_threefold_repetition():
+            logger.debug("Stalemate has been reached")
+            return 0
+
+        if board.turn == chess.WHITE:
+            best_score = float("-inf")
+
+            for white_move in board.legal_moves:
+                board.push(white_move)
+                score = self.minimax(board, depth-1, alpha, beta)
+                best_score = max(best_score, score)
+                alpha = max(alpha, score)
+                board.pop()
+
+                if alpha >= beta:
+                    break
+        else:
+            best_score = float("inf")
+
+            for black_move in board.legal_moves:
+                board.push(black_move)
+                score = self.minimax(board, depth-1, alpha, beta)
+                best_score = min(best_score, score)
+                beta = min(beta, score)
+                board.pop()
+
+                if alpha >= beta:
+                    break
+
+        return best_score

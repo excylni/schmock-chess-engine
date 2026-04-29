@@ -1,7 +1,7 @@
 import sys
 import chess
 import logging
-from engine import best_move
+from engine import ChessEngine
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.setrecursionlimit(5000)
@@ -78,7 +78,6 @@ def uci_loop():
                         board.push_uci(mv)
 
         elif line.startswith("go"):
-            print("--- DEBUG: Starting Search Now ---", file=sys.stderr, flush=True)
             wtime = btime = None
             winc = binc = 0
             movestogo = None
@@ -142,7 +141,7 @@ def uci_loop():
             logging.debug(f"Think time allocated: {think_time} ms with depth:{depth}")
 
             try:
-                move = best_move(board, depth)
+                move = ChessEngine.best_move(board, depth)
                 if move is None:
                     move = list(board.legal_moves)[0]
                 elif move not in board.legal_moves:
