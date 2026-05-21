@@ -1,15 +1,20 @@
 import chess
 from concurrent.futures import ThreadPoolExecutor
 import logging
+import time
 
 logger = logging.getLogger(__name__)
+
+
+class SearchTimeout(Exception):
+    pass
 
 #Piece-Square Tables
 evalWhitePawn = [0,  0,  0,  0,  0,  0,  0,  0,
                 50, 50, 50, 50, 50, 50, 50, 50,
                 10, 10, 20, 30, 30, 20, 10, 10,
                 5,  5, 10, 25, 25, 10,  5,  5,
-                0,  0,  0, 20, 20,  0,  0,  0,
+                0,  0,  0, 30, 30,  0,  0,  0,
                 5, -5,-10,  0,  0,-10, -5,  5,
                 5, 10, 10,-20,-20, 10, 10,  5,
                 0,  0,  0,  0,  0,  0,  0,  0]
@@ -99,8 +104,9 @@ PST_Black = {
     chess.QUEEN: evalBlackQueen,
 }
 
+
 class ChessEngine():
-    def __init__(self,board: chess.Board = None):
+    def __init__(self, board: chess.Board = None):
         self.name = "Schmock3000"
         self.board = board if board else chess.Board()
         self.piece_values = {
@@ -112,7 +118,7 @@ class ChessEngine():
             chess.KING: 20000
             }
         self.MATE_SCORE = 90000
-
+        self.nodes_visited = 0
 
     def evaluate_pieces(self, board: chess.Board) -> float:
         score = 0
@@ -138,7 +144,6 @@ class ChessEngine():
 
         return score
 
-
     def evaluate(self, board: chess.Board) -> float:
         """Return a score for the position. Positive -> good for white"""
         score = 0
@@ -153,7 +158,6 @@ class ChessEngine():
         logging.debug(
             f"Evaluated score, piece values:{score}, positional values:{positional_score}, total: {total}")
         return total
-
 
     def is_endgame(self, board: chess.Board) -> bool:
         queens = 0
@@ -172,72 +176,37 @@ class ChessEngine():
         else:
             return False
 
-
-
-    def best_move(self ,board: chess.Board, depth: int) -> chess.Move:
-        """choosing the best move out of all legal moves using eval func. and minimax"""
-        best_move = None
-        alpha = float("-inf")
-        beta = float("inf")
-        logger.info(f"Starting search for depth {depth}. Current FEN: {board.fen()}")
-        if not board.legal_moves:
-            logger.debug("No legal moves available")
-            return None
-
-        if board.turn == chess.WHITE:
-            best_score = float("-inf")
-            for legal_move in board.legal_moves:
-                board.push(legal_move)
-                score = self.minimax(board, depth-1, alpha, beta)
-                alpha = max(alpha, score)
-                board.pop()
-
-                if best_score < score:
-                    best_score = score
-                    best_move = legal_move
-                    logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
-        else:
-            best_score = float("inf")
-            for legal_move in board.legal_moves:
-                board.push(legal_move)
-                score = self.minimax(board, depth-1, alpha, beta)
-                beta = min(beta, score)
-                board.pop()
-
-                if best_score > score:
-                    best_score = score
-                    best_move = legal_move
-                    logger.debug(f"New best score found: {best_score} for move {legal_move.uci()} at depth {depth-1}")
-
-        return best_move
-
-
-    def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float) -> float:
+    def minimax(self, board: chess.Board, depth: int, alpha: float, beta: float, start_time: float, think_time: float) -> float:
         """getting the best score eval func. and minimax,
         by looking at the best move of the opponent and choosing the lesser evil"""
-        if depth == 0:
-            logger.debug(f"Reached node 0. Score: {self.evaluate(board)}")
-            return self.evaluate(board)
+        best_move = None
+        self.nodes_visited += 1
 
-        if board.is_checkmate():
-            if board.turn == chess.WHITE:
-                logger.debug("White is in CHECKMATE")
-                return -self.MATE_SCORE
-            else:
-                logger.debug("Black is in CHECKMATE")
-                return self.MATE_SCORE
-        if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_threefold_repetition():
-            logger.debug("Stalemate has been reached")
-            return 0
+        if self.nodes_visited % 2048 == 0:
+            elapsed = time.time() - start_time
+
+            if elapsed > think_time:
+                raise SearchTimeout
+
+        if board.is_game_over():
+            result = board.outcome()
+            if result.winner is None:
+                return 0.0, None  # Draw (Stalemate, repetition, etc.)
+            return (self.MATE_SCORE, None) if result.winner == chess.WHITE else (-self.MATE_SCORE, None)
+
+        if depth == 0:
+            return self.evaluate(board), None
 
         if board.turn == chess.WHITE:
             best_score = float("-inf")
 
             for white_move in board.legal_moves:
                 board.push(white_move)
-                score = self.minimax(board, depth-1, alpha, beta)
-                best_score = max(best_score, score)
-                alpha = max(alpha, score)
+                score, _ = self.minimax(board, depth-1, alpha, beta, think_time, start_time)
+                if best_score < score:
+                    best_score = score
+                    best_move = white_move
+                alpha = max(alpha, best_score)
                 board.pop()
 
                 if alpha >= beta:
@@ -247,12 +216,45 @@ class ChessEngine():
 
             for black_move in board.legal_moves:
                 board.push(black_move)
-                score = self.minimax(board, depth-1, alpha, beta)
-                best_score = min(best_score, score)
-                beta = min(beta, score)
+                score, _ = self.minimax(board, depth-1, alpha, beta, think_time, start_time)
+                if best_score > score:
+                    best_score = score
+                    best_move = black_move
+                beta = min(beta, best_score)
                 board.pop()
 
                 if alpha >= beta:
                     break
 
-        return best_score
+        return best_score, best_move
+
+    def itterative_deepening(self, board: chess.Board, time_left: float):
+        """starting search from depth 0 and increasing """
+        best_move = None
+        start_time = time.time()
+
+        limit = time_left // 1000
+        think_time = limit / 18
+        self.nodes_visited = 0
+        for depth in range(0, 1000):
+            elapsed = time.time() - start_time
+
+            # if no time left, break
+            if elapsed > think_time:
+                break
+
+            try:
+                _, move = self.minimax(
+                    board,
+                    depth,
+                    float("inf"),
+                    float("-inf"),
+                    start_time,
+                    think_time)
+                if move:
+                    best_move = move
+
+            except SearchTimeout:
+                print(f"Ran out of time! Stopped at depth {depth}. Nodes reached: {self.nodes_visited}") 
+
+        return best_move

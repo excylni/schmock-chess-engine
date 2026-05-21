@@ -20,6 +20,7 @@ logging.basicConfig(
 
 logging.getLogger().handlers[1].setLevel(logging.WARNING)
 
+
 def uci_loop():
     move_overhead_ms = 100
     threads = 8 
@@ -80,8 +81,6 @@ def uci_loop():
         elif line.startswith("go"):
             wtime = btime = None
             winc = binc = 0
-            movestogo = None
-            movetime = None
 
             #Parser
             parts = line.split()
@@ -115,33 +114,12 @@ def uci_loop():
 
             if board.turn == chess.WHITE:
                 time_left = wtime
-                inc = winc
             else:
                 time_left = btime
-                inc = binc
-
-            if movetime is not None:
-                think_time = movetime
-            elif time_left is not None:
-                if movestogo:
-                    think_time = time_left // movestogo
-                else:
-                    think_time = time_left // 30
-                think_time += inc
-            else:
-                think_time = 1000
-
-            think_time = max(10, think_time - move_overhead_ms)
-            if think_time < 200:
-                depth = 2
-            elif think_time < 1000:
-                depth = 3
-            else:
-                depth = 4
-            logging.debug(f"Think time allocated: {think_time} ms with depth:{depth}")
 
             try:
-                move = ChessEngine.best_move(board, depth)
+                # Change move with IDS
+                move = ChessEngine.itterative_deepening(board, time_left)
                 if move is None:
                     move = list(board.legal_moves)[0]
                 elif move not in board.legal_moves:
