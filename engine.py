@@ -233,28 +233,30 @@ class ChessEngine():
         best_move = None
         start_time = time.time()
 
-        limit = time_left // 1000
+        # Converting ms to sec
+        limit = time_left / 1000
         think_time = limit / 18
         self.nodes_visited = 0
-        for depth in range(0, 1000):
-            elapsed = time.time() - start_time
+        try:
+            for depth in range(1, 1000):
+                elapsed = time.time() - start_time
 
             # if no time left, break
-            if elapsed > think_time:
-                break
+                if elapsed > think_time:
+                    break
 
-            try:
+
                 _, move = self.minimax(
                     board,
                     depth,
-                    float("inf"),
                     float("-inf"),
+                    float("inf"),
                     start_time,
                     think_time)
                 if move:
                     best_move = move
-
-            except SearchTimeout:
-                print(f"Ran out of time! Stopped at depth {depth}. Nodes reached: {self.nodes_visited}") 
+                print(f"[DEBUG] Completed Depth {depth}! Nodes so far: {self.nodes_visited}")
+        except SearchTimeout:
+            print(f"Ran out of time! Stopped at depth {depth}. Nodes reached: {self.nodes_visited}") 
 
         return best_move
